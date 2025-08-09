@@ -10,12 +10,12 @@ export type EngineResult = {
   pv?: string;
 };
 
-const STOCKFISH_URL = "https://cdn.jsdelivr.net/npm/stockfish@16/stockfish.js";
+// Use an asm.js build so we don't need separate .wasm assets
+// cdnjs serves with proper CORS headers
+const STOCKFISH_SCRIPT_URL =
+  "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
 
 function parseInfoLine(line: string) {
-  // examples:
-  // info depth 15 score cp 23 nodes 12345 nps 56789 tbhits 0 time 123 pv e2e4 e7e5 g1f3
-  // info depth 20 score mate 3 ...
   const parts = line.split(/\s+/);
   const idxScore = parts.indexOf("score");
   if (idxScore !== -1 && parts[idxScore + 1]) {
@@ -31,7 +31,6 @@ function parseInfoLine(line: string) {
 
 export function mapEvalToCentipawns(e: EngineEval): number {
   if (e.type === "cp") return e.value;
-  // Mate scores: map to very large centipawn values preserving sign
   const sign = e.value === 0 ? 0 : e.value > 0 ? 1 : -1;
   return sign * 100000; // treat mate as decisive value
 }
@@ -43,8 +42,17 @@ export function useStockfish() {
     Promise.resolve({ eval: { type: "cp", value: 0 }, bestMove: "0000" })
   );
 
-  if (typeof window !== "undefined" && !engineRef.current) {
-    const engine = new Worker(STOCKFISH_URL);
+  const ensureEngine = async () => {
+    if (typeof window === "undefined") return;
+    if (engineRef.current && readyRef.current) return;
+
+    // Fetch script (CORS) and spawn worker from blob (same-origin blob URL)
+    const resp = await fetch(STOCKFISH_SCRIPT_URL, { mode: "cors" });
+    if (!resp.ok) throw new Error(`Failed to fetch Stockfish: ${resp.status}`);
+    const code = await resp.text();
+    const blob = new Blob([code], { type: "text/javascript" });
+    const blobUrl = URL.createObjectURL(blob);
+    const engine = new Worker(blobUrl);
     engineRef.current = engine;
 
     readyRef.current = new Promise<void>((resolve) => {
@@ -59,16 +67,13 @@ export function useStockfish() {
       engine.addEventListener("message", onMsg as any);
       engine.postMessage("uci");
     });
-  }
+  };
 
   const analyze = (fen: string, depth = 14): Promise<EngineResult> => {
-    if (!engineRef.current || !readyRef.current) {
-      return Promise.resolve({ eval: { type: "cp", value: 0 }, bestMove: "0000" });
-    }
-
     queueRef.current = queueRef.current.then(
       () =>
         new Promise<EngineResult>(async (resolve) => {
+          await ensureEngine();
           const engine = engineRef.current!;
           await readyRef.current!;
 
@@ -91,7 +96,6 @@ export function useStockfish() {
           };
 
           engine.addEventListener("message", onMessage as any);
-
           engine.postMessage("ucinewgame");
           engine.postMessage(`position fen ${fen}`);
           engine.postMessage(`go depth ${depth}`);
