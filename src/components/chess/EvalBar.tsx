@@ -4,6 +4,7 @@ import { EngineEval, mapEvalToCentipawns } from "@/engine/useStockfish";
 interface EvalBarProps {
   evalNow?: EngineEval; // evaluation for current position from White's perspective
   heightPx?: number;
+  analyzing?: boolean;
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -18,7 +19,7 @@ function evalToPercentWhite(evalNow?: EngineEval): number {
   return Math.round(50 + (cp / 1000) * 50);
 }
 
-export const EvalBar: React.FC<EvalBarProps> = ({ evalNow, heightPx = 560 }) => {
+export const EvalBar: React.FC<EvalBarProps> = ({ evalNow, heightPx = 560, analyzing }) => {
   const percentWhite = evalToPercentWhite(evalNow);
   const blackPercent = 100 - percentWhite;
 
@@ -30,16 +31,21 @@ export const EvalBar: React.FC<EvalBarProps> = ({ evalNow, heightPx = 560 }) => 
     >
       {/* Black advantage on top */}
       <div
-        className="absolute top-0 left-0 w-full bg-foreground/90 transition-all duration-300"
+        className="absolute top-0 left-0 w-full bg-foreground/90 transition-all duration-500"
         style={{ height: `${blackPercent}%` }}
       />
       {/* White advantage on bottom */}
       <div
-        className="absolute bottom-0 left-0 w-full bg-background transition-all duration-300"
+        className="absolute bottom-0 left-0 w-full bg-background transition-all duration-500"
         style={{ height: `${percentWhite}%` }}
       />
-      {/* Divider line */}
-      <div className="absolute top-1/2 left-0 right-0 h-px bg-border" />
+      {/* Live boundary indicator */}
+      <div
+        className={"absolute left-0 right-0 h-0.5 bg-primary " + (analyzing ? "animate-eval-wobble" : "")}
+        style={{ top: `${blackPercent}%` }}
+      />
+      {/* Midline */}
+      <div className="absolute top-1/2 left-0 right-0 h-px bg-border/60" />
     </div>
   );
 };

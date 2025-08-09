@@ -89,14 +89,23 @@ const Index: React.FC = () => {
   const [currentEval, setCurrentEval] = useState<EngineEval | undefined>(undefined);
   const [currentBestMove, setCurrentBestMove] = useState<string | undefined>(undefined);
   const [orientation, setOrientation] = useState<"white" | "black">("white");
+  const [analyzing, setAnalyzing] = useState(false);
+  const analyzingCountRef = useRef(0);
 
   const boardSize = useMemo(() => (isMobile ? 320 : 560), [isMobile]);
 
   // Analyze current position continuously (best move + eval)
   const analyzeCurrentPosition = useCallback(async () => {
-    const res = await analyze(game.fen(), depth);
-    setCurrentEval(res.eval);
-    setCurrentBestMove(res.bestMove);
+    analyzingCountRef.current += 1;
+    setAnalyzing(true);
+    try {
+      const res = await analyze(game.fen(), depth);
+      setCurrentEval(res.eval);
+      setCurrentBestMove(res.bestMove);
+    } finally {
+      analyzingCountRef.current -= 1;
+      setAnalyzing(analyzingCountRef.current > 0);
+    }
   }, [analyze, game, depth]);
 
   useEffect(() => {
@@ -117,6 +126,9 @@ const Index: React.FC = () => {
       const beforeMat = materialBalanceCp(preFen);
       const afterMat = materialBalanceCp(next.fen());
       const sacrificial = (move.color === "w" ? afterMat - beforeMat : beforeMat - afterMat) < 0;
+
+      // Update board state
+      setGame(next);
 
       // Create a temporary move record immediately
       const ply = next.history().length; // after pushing
@@ -236,7 +248,7 @@ const Index: React.FC = () => {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,360px)]">
             {/* Eval bar */}
             <div className="flex justify-center lg:justify-start lg:pt-2">
-              <EvalBar evalNow={currentEval} heightPx={boardSize} />
+              <EvalBar evalNow={currentEval} analyzing={analyzing} heightPx={boardSize} />
             </div>
 
             {/* Board + status */}
