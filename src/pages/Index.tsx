@@ -118,33 +118,42 @@ const Index: React.FC = () => {
       const afterMat = materialBalanceCp(next.fen());
       const sacrificial = (move.color === "w" ? afterMat - beforeMat : beforeMat - afterMat) < 0;
 
-      setGame(next);
+      // Create a temporary move record immediately
+      const ply = next.history().length; // after pushing
+      const moveNumber = Math.ceil(ply / 2);
+      const tempRec: MoveRecord = {
+        ply,
+        moveNumber,
+        color: move.color as "w" | "b",
+        san: move.san,
+        uci: `${move.from}${move.to}${move.promotion || ""}`,
+        fenAfter: next.fen(),
+      };
+      setMoves((prev) => [...prev, tempRec]);
 
-      // Fire-and-forget engine analysis for the new position AFTER move
+      // Fire-and-forget engine analysis (before & after)
       (async () => {
-        // Analyze BEFORE and AFTER to guarantee best move availability
-        const resBefore = await analyze(preFen, depth);
-        const resAfter = await analyze(next.fen(), depth);
-        const ply = next.history().length; // after pushing
-        const moveNumber = Math.ceil(ply / 2);
+        const fallback = { eval: { type: "cp", value: 0 } as EngineEval, bestMove: "0000" };
+        const resBefore = (await analyze(preFen, depth).catch(() => fallback));
+        const resAfter = (await analyze(next.fen(), depth).catch(() => fallback));
         const playedIsBest = resBefore.bestMove.slice(0, 4) === `${move.from}${move.to}`.toLowerCase();
         const bestSan = uciToSan(preFen, resBefore.bestMove);
 
-        const rec: MoveRecord = {
-          ply,
-          moveNumber,
-          color: move.color as "w" | "b",
-          san: move.san,
-          uci: `${move.from}${move.to}${move.promotion || ""}`,
-          fenAfter: next.fen(),
-          evalBeforeCp: mapEvalToCentipawns(resBefore.eval),
-          evalAfterCp: mapEvalToCentipawns(resAfter.eval),
-          bestMoveUci: resBefore.bestMove,
-          bestMoveSan: bestSan,
-          category: categorizeMove(resBefore.eval, resAfter.eval, !!playedIsBest, sacrificial, ply),
-        };
+        setMoves((prev) =>
+          prev.map((m) =>
+            m.ply === ply
+              ? {
+                  ...m,
+                  evalBeforeCp: mapEvalToCentipawns(resBefore.eval),
+                  evalAfterCp: mapEvalToCentipawns(resAfter.eval),
+                  bestMoveUci: resBefore.bestMove,
+                  bestMoveSan: bestSan,
+                  category: categorizeMove(resBefore.eval, resAfter.eval, !!playedIsBest, sacrificial, ply),
+                }
+              : m
+          )
+        );
 
-        setMoves((prev) => [...prev, rec]);
         setCurrentEval(resAfter.eval);
         setCurrentBestMove(resAfter.bestMove);
       })();
@@ -239,11 +248,12 @@ const Index: React.FC = () => {
                     onPieceDrop={onDrop}
                     boardWidth={boardSize}
                     customBoardStyle={{ borderRadius: 12 }}
-                    customDarkSquareStyle={{ backgroundColor: "hsl(var(--secondary))" }}
-                    customLightSquareStyle={{ backgroundColor: "hsl(var(--muted))" }}
+                    customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
+                    customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
                     arePiecesDraggable={true}
                     animationDuration={200}
                     boardOrientation={orientation}
+                    showBoardNotation={true}
                   />
                 </div>
               </div>

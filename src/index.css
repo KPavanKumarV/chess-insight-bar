@@ -49,10 +49,14 @@ All colors MUST be HSL.
     --sidebar-accent: 240 4.8% 95.9%;
 
     --sidebar-accent-foreground: 240 5.9% 10%;
-
+ 
     --sidebar-border: 220 13% 91%;
-
+ 
     --sidebar-ring: 217.2 91.2% 59.8%;
+ 
+    /* Chessboard specific tokens */
+    --chess-dark-square: 220 14% 24%; /* deep slate */
+    --chess-light-square: 210 40% 92%; /* soft light */
   }
 
   .dark {
@@ -91,7 +95,11 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+
+    /* Chessboard specific tokens (dark) */
+    --chess-dark-square: 220 14% 18%;
+    --chess-light-square: 220 14% 36%;
+   }
 }
 
 @layer base {

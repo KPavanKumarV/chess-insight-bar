@@ -73,7 +73,13 @@ export function useStockfish() {
     queueRef.current = queueRef.current.then(
       () =>
         new Promise<EngineResult>(async (resolve) => {
-          await ensureEngine();
+          try {
+            await ensureEngine();
+          } catch (e) {
+            // Fallback if engine can't initialize
+            resolve({ eval: { type: "cp", value: 0 }, bestMove: "0000" });
+            return;
+          }
           const engine = engineRef.current!;
           await readyRef.current!;
 
