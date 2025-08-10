@@ -247,7 +247,7 @@ const Index: React.FC = () => {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,360px)]">
             {/* Eval bar */}
-            <div className="flex justify-center lg:justify-start lg:pt-2">
+            <div className="flex justify-center lg:justify-start lg:pt-2 lg:self-center">
               <EvalBar evalNow={currentEval} analyzing={analyzing} heightPx={boardSize} />
             </div>
 
