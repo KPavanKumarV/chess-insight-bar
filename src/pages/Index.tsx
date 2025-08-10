@@ -245,28 +245,30 @@ const Index: React.FC = () => {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,360px)]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
             {/* Eval bar */}
-            <div className="flex justify-center lg:justify-start lg:pt-2 lg:self-center">
-              <EvalBar evalNow={currentEval} analyzing={analyzing} heightPx={boardSize} />
-            </div>
 
             {/* Board + status */}
             <div className="flex flex-col items-center gap-4">
-              <div className="w-full max-w-[min(100%,700px)]">
-                <div className="rounded-xl border bg-card p-3 shadow-sm">
-                  <Chessboard
-                    position={game.fen()}
-                    onPieceDrop={onDrop}
-                    boardWidth={boardSize}
-                    customBoardStyle={{ borderRadius: 12 }}
-                    customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
-                    customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
-                    arePiecesDraggable={true}
-                    animationDuration={200}
-                    boardOrientation={orientation}
-                    showBoardNotation={true}
-                  />
+              <div className="w-full">
+                <div className="flex items-center justify-center lg:justify-start gap-3">
+                  <EvalBar evalNow={currentEval} analyzing={analyzing} heightPx={boardSize} />
+                  <div className="max-w-[min(100%,700px)]">
+                    <div className="rounded-xl border bg-card p-3 shadow-sm">
+                      <Chessboard
+                        position={game.fen()}
+                        onPieceDrop={onDrop}
+                        boardWidth={boardSize}
+                        customBoardStyle={{ borderRadius: 12 }}
+                        customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
+                        customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
+                        arePiecesDraggable={true}
+                        animationDuration={200}
+                        boardOrientation={orientation}
+                        showBoardNotation={true}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="w-full max-w-[min(100%,700px)]">
