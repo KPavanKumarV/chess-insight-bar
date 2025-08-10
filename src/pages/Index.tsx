@@ -191,10 +191,12 @@ const Index: React.FC = () => {
   const onImportPgn = useCallback((pgnText: string) => {
     try {
       const g = new Chess();
-      const ok = (g as any).loadPgn ? (g as any).loadPgn(pgnText, { sloppy: true }) : (g as any).load_pgn(pgnText);
+      const loader: any = (g as any).loadPgn || (g as any).load_pgn; const ok = loader ? loader.call(g, pgnText, { sloppy: true }) : false;
       if (!ok) return;
+      const fenMatch = pgnText.match(/\[FEN\s+"([^"]+)"\]/i);
+      const startFen = fenMatch?.[1];
       const verboseMoves = g.history({ verbose: true }) as Array<any>;
-      const temp = new Chess();
+      const temp = new Chess(startFen || undefined);
       const records: MoveRecord[] = [];
       let ply = 0;
       for (const m of verboseMoves) {
