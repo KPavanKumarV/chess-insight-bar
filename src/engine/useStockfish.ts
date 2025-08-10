@@ -38,9 +38,10 @@ export function mapEvalToCentipawns(e: EngineEval): number {
 export function useStockfish() {
   const engineRef = useRef<Worker | null>(null);
   const readyRef = useRef<Promise<void> | null>(null);
-  const queueRef = useRef<Promise<EngineResult>>(
-    Promise.resolve({ eval: { type: "cp", value: 0 }, bestMove: "0000" })
-  );
+  const queueRef = useRef<Promise<EngineResult> | null>(null);
+  const currentListenerRef = useRef<((e: MessageEvent) => void) | null>(null);
+  const currentTimerRef = useRef<number | null>(null);
+  const jobIdRef = useRef(0);
 
   const ensureEngine = async () => {
     if (typeof window === "undefined") return;
@@ -70,45 +71,70 @@ export function useStockfish() {
   };
 
   const analyze = (fen: string, depth = 14): Promise<EngineResult> => {
-    queueRef.current = queueRef.current.then(
-      () =>
-        new Promise<EngineResult>(async (resolve) => {
-          try {
-            await ensureEngine();
-          } catch (e) {
-            // Fallback if engine can't initialize
-            resolve({ eval: { type: "cp", value: 0 }, bestMove: "0000" });
-            return;
+    return new Promise<EngineResult>(async (resolve) => {
+      try {
+        await ensureEngine();
+      } catch (e) {
+        resolve({ eval: { type: "cp", value: 0 }, bestMove: "0000" });
+        return;
+      }
+
+      const engine = engineRef.current!;
+      await readyRef.current!;
+
+      // Cancel any previous search and listener
+      try { engine.postMessage("stop"); } catch {}
+      if (currentListenerRef.current) {
+        engine.removeEventListener("message", currentListenerRef.current as any);
+        currentListenerRef.current = null;
+      }
+      if (currentTimerRef.current) {
+        clearTimeout(currentTimerRef.current);
+        currentTimerRef.current = null;
+      }
+
+      // Unique job id to ignore stale results
+      jobIdRef.current += 1;
+      const myJob = jobIdRef.current;
+
+      let lastEval: EngineEval = { type: "cp", value: 0 };
+      let lastPv: string | undefined;
+
+      const onMessage = (e: MessageEvent) => {
+        const text = typeof e.data === "string" ? e.data : "";
+        if (text.startsWith("info ")) {
+          const parsed = parseInfoLine(text);
+          if (parsed) {
+            lastEval = parsed.eval;
+            lastPv = parsed.pv;
           }
-          const engine = engineRef.current!;
-          await readyRef.current!;
+        } else if (text.startsWith("bestmove ")) {
+          if (myJob !== jobIdRef.current) return; // stale
+          const bestMove = text.split(" ")[1];
+          if (currentTimerRef.current) {
+            clearTimeout(currentTimerRef.current);
+            currentTimerRef.current = null;
+          }
+          engine.removeEventListener("message", onMessage as any);
+          currentListenerRef.current = null;
+          resolve({ eval: lastEval, bestMove, pv: lastPv });
+        }
+      };
 
-          let lastEval: EngineEval = { type: "cp", value: 0 };
-          let lastPv: string | undefined;
+      currentListenerRef.current = onMessage as any;
+      engine.addEventListener("message", onMessage as any);
 
-          const onMessage = (e: MessageEvent) => {
-            const text = typeof e.data === "string" ? e.data : "";
-            if (text.startsWith("info ")) {
-              const parsed = parseInfoLine(text);
-              if (parsed) {
-                lastEval = parsed.eval;
-                lastPv = parsed.pv;
-              }
-            } else if (text.startsWith("bestmove ")) {
-              const bestMove = text.split(" ")[1];
-              engine.removeEventListener("message", onMessage as any);
-              resolve({ eval: lastEval, bestMove, pv: lastPv });
-            }
-          };
+      engine.postMessage("ucinewgame");
+      engine.postMessage(`position fen ${fen}`);
 
-          engine.addEventListener("message", onMessage as any);
-          engine.postMessage("ucinewgame");
-          engine.postMessage(`position fen ${fen}`);
-          engine.postMessage(`go depth ${depth}`);
-        })
-    );
-
-    return queueRef.current;
+      // Time budget scales with depth but stays responsive
+      const timeBudget = Math.max(400, Math.min(1800, depth * 90));
+      // Start a deeper search but force-stop after budget to get quick bestmove
+      engine.postMessage(`go depth ${depth}`);
+      currentTimerRef.current = window.setTimeout(() => {
+        try { engine.postMessage("stop"); } catch {}
+      }, timeBudget);
+    });
   };
 
   return { analyze };
