@@ -57,6 +57,11 @@ All colors MUST be HSL.
     /* Chessboard specific tokens */
     --chess-dark-square: 220 14% 24%; /* deep slate */
     --chess-light-square: 210 40% 92%; /* soft light */
+
+    /* Subtle background gradient using design tokens */
+    --gradient-subtle: radial-gradient(800px 800px at 0% 0%, hsl(var(--primary) / 0.08), transparent 60%),
+                       radial-gradient(700px 700px at 100% 20%, hsl(var(--accent) / 0.08), transparent 60%);
+
   }
 
   .dark {
@@ -99,6 +104,9 @@ All colors MUST be HSL.
     /* Chessboard specific tokens (dark) */
     --chess-dark-square: 220 14% 18%;
     --chess-light-square: 220 14% 36%;
+
+    --gradient-subtle: radial-gradient(800px 800px at 0% 0%, hsl(var(--primary) / 0.14), transparent 60%),
+                       radial-gradient(700px 700px at 100% 20%, hsl(var(--accent) / 0.12), transparent 60%);
    }
 }
 
@@ -109,5 +117,13 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Gradient background helper */
+  .app-gradient {
+    background-image: var(--gradient-subtle);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
   }
 }

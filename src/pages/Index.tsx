@@ -206,7 +206,7 @@ const Index: React.FC = () => {
         <link rel="canonical" href="/" />
       </Helmet>
 
-      <main className="min-h-screen bg-background">
+      <main className="min-h-screen bg-background app-gradient">
         <section className="container py-8">
           <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
