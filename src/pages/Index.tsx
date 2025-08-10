@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { EvalBar } from "@/components/chess/EvalBar";
 import { MoveList, MoveRecord, MoveCategory } from "@/components/chess/MoveList";
 import { EngineEval, useStockfish, mapEvalToCentipawns } from "@/engine/useStockfish";
+import { PgnImport } from "@/components/chess/PgnImport";
 
 // Helpers
 function clamp(n: number, min: number, max: number) {
@@ -187,6 +188,34 @@ const Index: React.FC = () => {
     setGame(g);
     setMoves((prev) => prev.slice(0, -1));
   }, [game]);
+  const onImportPgn = useCallback((pgnText: string) => {
+    try {
+      const g = new Chess();
+      const ok = (g as any).loadPgn ? (g as any).loadPgn(pgnText, { sloppy: true }) : (g as any).load_pgn(pgnText);
+      if (!ok) return;
+      const verboseMoves = g.history({ verbose: true }) as Array<any>;
+      const temp = new Chess();
+      const records: MoveRecord[] = [];
+      let ply = 0;
+      for (const m of verboseMoves) {
+        ply += 1;
+        temp.move({ from: m.from, to: m.to, promotion: m.promotion || "q" });
+        const moveNumber = Math.ceil(ply / 2);
+        records.push({
+          ply,
+          moveNumber,
+          color: m.color,
+          san: m.san,
+          uci: `${m.from}${m.to}${m.promotion || ""}`,
+          fenAfter: temp.fen(),
+        });
+      }
+      setGame(temp);
+      setMoves(records);
+    } catch {
+      // silently ignore invalid PGN for now
+    }
+  }, [setGame, setMoves]);
 
   const bestMoveSanNow = useMemo(() => {
     if (!currentBestMove) return undefined;
@@ -303,6 +332,7 @@ const Index: React.FC = () => {
 
             {/* Moves list */}
             <aside className="min-h-[200px]">
+              <PgnImport onLoad={onImportPgn} />
               <h2 className="mb-3 text-lg font-semibold">Move List</h2>
               <MoveList moves={moves} />
             </aside>
