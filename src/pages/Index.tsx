@@ -191,14 +191,23 @@ const Index: React.FC = () => {
   const onImportPgn = useCallback((pgnText: string) => {
     try {
       const g = new Chess();
-      const loader: any = (g as any).loadPgn || (g as any).load_pgn; const ok = loader ? loader.call(g, pgnText, { sloppy: true }) : false;
-      if (!ok) return;
+      
+      // Try to load the PGN using chess.js loadPgn method
+      g.loadPgn(pgnText, { strict: false });
+
+      // Check for custom starting position (FEN tag)
       const fenMatch = pgnText.match(/\[FEN\s+"([^"]+)"\]/i);
       const startFen = fenMatch?.[1];
+      
+      // Get all moves that were played
       const verboseMoves = g.history({ verbose: true }) as Array<any>;
+      
+      // Create a new game from the starting position
       const temp = new Chess(startFen || undefined);
       const records: MoveRecord[] = [];
       let ply = 0;
+      
+      // Replay all moves to build our move list
       for (const m of verboseMoves) {
         ply += 1;
         temp.move({ from: m.from, to: m.to, promotion: m.promotion || "q" });
@@ -212,12 +221,15 @@ const Index: React.FC = () => {
           fenAfter: temp.fen(),
         });
       }
+      
+      // Update game state with final position
       setGame(temp);
       setMoves(records);
-    } catch {
-      // silently ignore invalid PGN for now
+      console.log(`Loaded PGN with ${records.length} moves`);
+    } catch (error) {
+      console.error("Error loading PGN:", error);
     }
-  }, [setGame, setMoves]);
+  }, []);
 
   const bestMoveSanNow = useMemo(() => {
     if (!currentBestMove) return undefined;
