@@ -11,6 +11,7 @@ import { EvalBar } from "@/components/chess/EvalBar";
 import { MoveList, MoveRecord, MoveCategory } from "@/components/chess/MoveList";
 import { EngineEval, useStockfish, mapEvalToCentipawns } from "@/engine/useStockfish";
 import { PgnImport } from "@/components/chess/PgnImport";
+import { PieceSelector, PieceType } from "@/components/chess/PieceSelector";
 
 // Helpers
 function clamp(n: number, min: number, max: number) {
@@ -96,6 +97,8 @@ const Index: React.FC = () => {
   const [orientation, setOrientation] = useState<"white" | "black">("white");
   const [analyzing, setAnalyzing] = useState(false);
   const analyzingCountRef = useRef(0);
+  const [setupMode, setSetupMode] = useState(false);
+  const [selectedPiece, setSelectedPiece] = useState<PieceType | null>(null);
 
   const boardSize = useMemo(() => (isMobile ? 320 : 560), [isMobile]);
 
@@ -184,14 +187,108 @@ const Index: React.FC = () => {
     const fresh = new Chess();
     setGame(fresh);
     setMoves([]);
+    setSetupMode(false);
+  }, []);
+
+  const onClearBoard = useCallback(() => {
+    // Create an empty board FEN (no pieces, white to move)
+    const emptyFen = "8/8/8/8/8/8/8/8 w - - 0 1";
+    try {
+      const emptyGame = new Chess(emptyFen);
+      setGame(emptyGame);
+      setMoves([]);
+      setSetupMode(true);
+    } catch (error) {
+      console.error("Error creating empty board:", error);
+    }
   }, []);
 
   const onUndo = useCallback(() => {
+    if (setupMode) return; // Don't allow undo in setup mode
     const g = new Chess(game.fen());
     g.undo();
     setGame(g);
     setMoves((prev) => prev.slice(0, -1));
-  }, [game]);
+  }, [game, setupMode]);
+
+  const onSquareClick = useCallback((square: Square) => {
+    if (!setupMode || selectedPiece === undefined) return;
+
+    try {
+      const currentFen = game.fen();
+      const fenParts = currentFen.split(' ');
+      const boardPart = fenParts[0];
+      
+      // Convert FEN board to 2D array
+      const rows = boardPart.split('/');
+      const board: (string | null)[][] = [];
+      
+      for (let i = 0; i < 8; i++) {
+        const row: (string | null)[] = [];
+        const rowStr = rows[i];
+        for (let j = 0; j < rowStr.length; j++) {
+          const char = rowStr[j];
+          if (/[1-8]/.test(char)) {
+            // Empty squares
+            const emptyCount = parseInt(char);
+            for (let k = 0; k < emptyCount; k++) {
+              row.push(null);
+            }
+          } else {
+            // Piece
+            row.push(char);
+          }
+        }
+        board.push(row);
+      }
+
+      // Get square coordinates (a1 = [7,0], h8 = [0,7])
+      const file = square.charCodeAt(0) - 'a'.charCodeAt(0); // 0-7
+      const rank = parseInt(square[1]) - 1; // 0-7
+      const boardRow = 7 - rank; // Flip rank for board array index
+      
+      // Place or remove piece
+      if (selectedPiece === null) {
+        board[boardRow][file] = null; // Eraser
+      } else {
+        board[boardRow][file] = selectedPiece; // Place piece
+      }
+
+      // Convert back to FEN
+      let newBoardPart = '';
+      for (let i = 0; i < 8; i++) {
+        let rowStr = '';
+        let emptyCount = 0;
+        
+        for (let j = 0; j < 8; j++) {
+          if (board[i][j] === null) {
+            emptyCount++;
+          } else {
+            if (emptyCount > 0) {
+              rowStr += emptyCount.toString();
+              emptyCount = 0;
+            }
+            rowStr += board[i][j];
+          }
+        }
+        
+        if (emptyCount > 0) {
+          rowStr += emptyCount.toString();
+        }
+        
+        newBoardPart += rowStr;
+        if (i < 7) newBoardPart += '/';
+      }
+
+      // Keep other FEN parts the same
+      const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+      
+      const newGame = new Chess(newFen);
+      setGame(newGame);
+    } catch (error) {
+      console.error("Error placing piece:", error);
+    }
+  }, [setupMode, selectedPiece, game]);
   const onImportPgn = useCallback((pgnText: string) => {
     try {
       const g = new Chess();
@@ -298,12 +395,28 @@ const Index: React.FC = () => {
               <Button variant="secondary" onClick={() => setOrientation((o) => (o === "white" ? "black" : "white"))}>
                 Flip Board
               </Button>
-              <Button variant="secondary" onClick={onUndo} disabled={moves.length === 0}>
+              <Button 
+                variant={setupMode ? "default" : "secondary"} 
+                onClick={() => setSetupMode(!setupMode)}
+              >
+                {setupMode ? "Play Mode" : "Setup Mode"}
+              </Button>
+              <Button variant="secondary" onClick={onClearBoard}>
+                Clear Board
+              </Button>
+              <Button variant="secondary" onClick={onUndo} disabled={moves.length === 0 || setupMode}>
                 Undo Move
               </Button>
               <Button onClick={onReset}>New Game</Button>
             </div>
           </div>
+
+          {setupMode && (
+            <PieceSelector 
+              selectedPiece={selectedPiece}
+              onPieceSelect={setSelectedPiece}
+            />
+          )}
 
           <Card className="mb-6">
             <CardHeader className="pb-2">
@@ -338,12 +451,13 @@ const Index: React.FC = () => {
                     <div className="rounded-xl border bg-card p-3 shadow-sm">
                       <Chessboard
                         position={game.fen()}
-                        onPieceDrop={onDrop}
+                        onPieceDrop={setupMode ? () => false : onDrop}
+                        onSquareClick={setupMode ? onSquareClick : undefined}
                         boardWidth={boardSize}
                         customBoardStyle={{ borderRadius: 12 }}
                         customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
                         customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
-                        arePiecesDraggable={true}
+                        arePiecesDraggable={!setupMode}
                         animationDuration={200}
                         boardOrientation={orientation}
                         showBoardNotation={true}
@@ -357,10 +471,14 @@ const Index: React.FC = () => {
                   <CardContent className="pt-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="text-sm text-muted-foreground">
-                        To move: <span className="font-semibold text-foreground">{sideToMove}</span>
+                        {setupMode ? (
+                          <span className="font-semibold text-primary">Setup Mode: Click squares to place pieces</span>
+                        ) : (
+                          <>To move: <span className="font-semibold text-foreground">{sideToMove}</span></>
+                        )}
                       </div>
                       <div className="text-sm">
-                        {currentEval && (
+                        {currentEval && !setupMode && (
                           <span className="text-muted-foreground">
                             Eval: <span className="tabular-nums">{(mapEvalToCentipawns(currentEval) / 100).toFixed(2)}</span>
                           </span>
@@ -368,15 +486,17 @@ const Index: React.FC = () => {
                       </div>
                     </div>
                     <Separator className="my-3" />
-                    <div className="text-sm">
-                      {bestMoveSanNow ? (
-                        <span className="text-muted-foreground">
-                          Best move now: <span className="font-medium text-foreground">{bestMoveSanNow}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Calculating best move…</span>
-                      )}
-                    </div>
+                    {!setupMode && (
+                      <div className="text-sm">
+                        {bestMoveSanNow ? (
+                          <span className="text-muted-foreground">
+                            Best move now: <span className="font-medium text-foreground">{bestMoveSanNow}</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Calculating best move…</span>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
