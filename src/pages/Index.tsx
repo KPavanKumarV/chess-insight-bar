@@ -241,31 +241,65 @@ const Index: React.FC = () => {
   return (
     <>
       <Helmet>
-        <title>Chess Analysis & Engine | Live Evaluation</title>
+        <title>Chess Insight Bar - Advanced Chess Analysis Engine</title>
         <meta
           name="description"
-          content="Play and analyze chess with a built-in Stockfish engine. Live evaluation bar, best moves for both sides, and annotated move list."
+          content="Professional chess analysis platform powered by Stockfish engine. Analyze positions, import PGN files, and get real-time evaluations with move categorization."
         />
         <link rel="canonical" href="/" />
       </Helmet>
 
-      <main className="min-h-screen bg-background app-gradient">
-        <section className="container py-8">
-          <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-h-screen bg-background app-gradient">
+        {/* Navigation */}
+        <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-16 items-center">
+            <div className="mr-4 flex">
+              <h1 className="text-xl font-bold">Chess Insight Bar</h1>
+            </div>
+            <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+              <div className="w-full flex-1 md:w-auto md:flex-none">
+                <p className="text-sm text-muted-foreground">Professional Chess Analysis Platform</p>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <header className="border-b bg-gradient-to-b from-background to-muted/20">
+          <div className="container py-12">
+            <div className="mx-auto max-w-4xl text-center">
+              <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
+                Advanced Chess Analysis
+              </h1>
+              <p className="mt-6 text-lg leading-8 text-muted-foreground">
+                Analyze your chess games with professional-grade Stockfish engine. 
+                Import PGN files, get real-time evaluations, and improve your play with detailed move analysis.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                <span>✨ Powered by Stockfish {depth}</span>
+                <span>📊 Real-time Evaluation</span>
+                <span>📁 PGN Import</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="container py-8">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Chess Analysis Board</h1>
-              <p className="text-muted-foreground">Powered by Stockfish • Depth {depth}</p>
+              <h2 className="text-2xl font-semibold tracking-tight">Analysis Board</h2>
+              <p className="text-muted-foreground">Drag and drop pieces to analyze positions</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={() => setOrientation((o) => (o === "white" ? "black" : "white"))}>
-                Flip
+                Flip Board
               </Button>
               <Button variant="secondary" onClick={onUndo} disabled={moves.length === 0}>
-                Undo
+                Undo Move
               </Button>
               <Button onClick={onReset}>New Game</Button>
             </div>
-          </header>
+          </div>
 
           <Card className="mb-6">
             <CardHeader className="pb-2">
@@ -351,8 +385,43 @@ const Index: React.FC = () => {
               <MoveList moves={moves} />
             </aside>
           </div>
-        </section>
-      </main>
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t bg-background">
+          <div className="container py-8">
+            <div className="grid gap-8 md:grid-cols-3">
+              <div>
+                <h3 className="text-lg font-semibold">Chess Insight Bar</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Professional chess analysis platform for players of all levels.
+                </p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium">Features</h4>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  <li>Stockfish Engine Analysis</li>
+                  <li>PGN Import & Export</li>
+                  <li>Real-time Evaluation</li>
+                  <li>Move Categorization</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium">Analysis</h4>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  <li>Position Evaluation</li>
+                  <li>Best Move Suggestions</li>
+                  <li>Blunder Detection</li>
+                  <li>Opening Theory</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
+              <p>&copy; 2024 Chess Insight Bar. Empowering chess players worldwide.</p>
+            </div>
+          </div>
+        </footer>
+      </div>
     </>
   );
 };
