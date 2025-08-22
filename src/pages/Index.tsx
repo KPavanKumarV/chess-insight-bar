@@ -56,28 +56,32 @@ function categorizeMove(
   evalAfter: EngineEval,
   playedIsBest: boolean,
   moveWasSac: boolean,
-  ply: number
+  ply: number,
+  playerColor: "w" | "b"
 ): MoveCategory {
   // Theory heuristic: first 12 plies, small eval swing
   const beforeCp = mapEvalToCentipawns(evalBefore);
   const afterCp = mapEvalToCentipawns(evalAfter);
-  const delta = afterCp - beforeCp; // positive means better for side to move (white perspective)
-  const loss = -delta; // loss from the perspective of the side that played (approx)
+  
+  // Calculate evaluation change from the perspective of the player who moved
+  // Evaluations are always from White's perspective, so we need to flip for Black
+  const evalChange = playerColor === "w" ? (afterCp - beforeCp) : (beforeCp - afterCp);
+  const evalLoss = Math.max(0, -evalChange); // How much the player lost by this move
 
   if (ply <= 12 && Math.abs(afterCp - beforeCp) < 40 && playedIsBest) {
     return "Theory";
   }
 
   if (playedIsBest) {
-    if (moveWasSac && delta > 100) return "Brilliant";
-    if (delta > 100) return "Great";
+    if (moveWasSac && evalChange > 100) return "Brilliant";
+    if (evalChange > 100) return "Great";
     return "Good";
   }
 
-  const absLoss = Math.abs(loss);
-  if (absLoss >= 300) return "Blunder";
-  if (absLoss >= 100) return "Mistake";
-  if (absLoss >= 50) return "Inaccuracy";
+  // Categorize based on evaluation loss
+  if (evalLoss >= 300) return "Blunder";
+  if (evalLoss >= 100) return "Mistake";  
+  if (evalLoss >= 50) return "Inaccuracy";
   return "Good";
 }
 
@@ -161,7 +165,7 @@ const Index: React.FC = () => {
                   evalAfterCp: mapEvalToCentipawns(resAfter.eval),
                   bestMoveUci: resBefore.bestMove,
                   bestMoveSan: bestSan,
-                  category: categorizeMove(resBefore.eval, resAfter.eval, !!playedIsBest, sacrificial, ply),
+                  category: categorizeMove(resBefore.eval, resAfter.eval, !!playedIsBest, sacrificial, ply, move.color),
                 }
               : m
           )
