@@ -205,11 +205,32 @@ const Index: React.FC = () => {
 
   const onUndo = useCallback(() => {
     if (setupMode) return; // Don't allow undo in setup mode
-    const g = new Chess(game.fen());
-    g.undo();
-    setGame(g);
+    if (moves.length === 0) return;
+    
+    // Get the previous position by replaying all moves except the last one
+    const newGame = new Chess();
+    const movesToReplay = moves.slice(0, -1);
+    
+    for (const moveRecord of movesToReplay) {
+      try {
+        const move = newGame.move({
+          from: moveRecord.uci.slice(0, 2) as Square,
+          to: moveRecord.uci.slice(2, 4) as Square,
+          promotion: moveRecord.uci.length > 4 ? (moveRecord.uci[4] as any) : undefined
+        });
+        if (!move) {
+          console.error("Failed to replay move:", moveRecord);
+          return;
+        }
+      } catch (error) {
+        console.error("Error replaying move:", moveRecord, error);
+        return;
+      }
+    }
+    
+    setGame(newGame);
     setMoves((prev) => prev.slice(0, -1));
-  }, [game, setupMode]);
+  }, [moves, setupMode]);
 
   const onSquareClick = useCallback((square: Square) => {
     if (!setupMode || selectedPiece === undefined) return;
