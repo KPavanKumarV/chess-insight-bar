@@ -233,7 +233,7 @@ const Index: React.FC = () => {
   }, [moves, setupMode]);
 
   const onSquareClick = useCallback((square: Square) => {
-    if (!setupMode || selectedPiece === undefined) return;
+    if (!setupMode || selectedPiece === null) return;
 
     try {
       const currentFen = game.fen();
@@ -268,12 +268,8 @@ const Index: React.FC = () => {
       const rank = parseInt(square[1]) - 1; // 0-7
       const boardRow = 7 - rank; // Flip rank for board array index
       
-      // Place or remove piece
-      if (selectedPiece === null) {
-        board[boardRow][file] = null; // Eraser
-      } else {
-        board[boardRow][file] = selectedPiece; // Place piece
-      }
+      // Place piece
+      board[boardRow][file] = selectedPiece;
 
       // Convert back to FEN
       let newBoardPart = '';
@@ -310,6 +306,89 @@ const Index: React.FC = () => {
       console.error("Error placing piece:", error);
     }
   }, [setupMode, selectedPiece, game]);
+
+  const onSetupPieceDrop = useCallback((sourceSquare: Square, targetSquare: Square, piece: string) => {
+    if (!setupMode) return false;
+    
+    try {
+      const currentFen = game.fen();
+      const fenParts = currentFen.split(' ');
+      const boardPart = fenParts[0];
+      
+      // Convert FEN board to 2D array
+      const rows = boardPart.split('/');
+      const board: (string | null)[][] = [];
+      
+      for (let i = 0; i < 8; i++) {
+        const row: (string | null)[] = [];
+        const rowStr = rows[i];
+        for (let j = 0; j < rowStr.length; j++) {
+          const char = rowStr[j];
+          if (/[1-8]/.test(char)) {
+            const emptyCount = parseInt(char);
+            for (let k = 0; k < emptyCount; k++) {
+              row.push(null);
+            }
+          } else {
+            row.push(char);
+          }
+        }
+        board.push(row);
+      }
+
+      // Remove piece from source square
+      const sourceFile = sourceSquare.charCodeAt(0) - 'a'.charCodeAt(0);
+      const sourceRank = parseInt(sourceSquare[1]) - 1;
+      const sourceBoardRow = 7 - sourceRank;
+      board[sourceBoardRow][sourceFile] = null;
+
+      // Check if target is a valid square (a1-h8)
+      const isValidTarget = /^[a-h][1-8]$/.test(targetSquare);
+      
+      if (isValidTarget) {
+        // Place piece on target square
+        const targetFile = targetSquare.charCodeAt(0) - 'a'.charCodeAt(0);
+        const targetRank = parseInt(targetSquare[1]) - 1;
+        const targetBoardRow = 7 - targetRank;
+        board[targetBoardRow][targetFile] = piece;
+      }
+      // If not valid target, piece is removed (dragged off board)
+
+      // Convert back to FEN
+      let newBoardPart = '';
+      for (let i = 0; i < 8; i++) {
+        let rowStr = '';
+        let emptyCount = 0;
+        
+        for (let j = 0; j < 8; j++) {
+          if (board[i][j] === null) {
+            emptyCount++;
+          } else {
+            if (emptyCount > 0) {
+              rowStr += emptyCount.toString();
+              emptyCount = 0;
+            }
+            rowStr += board[i][j];
+          }
+        }
+        
+        if (emptyCount > 0) {
+          rowStr += emptyCount.toString();
+        }
+        
+        newBoardPart += rowStr;
+        if (i < 7) newBoardPart += '/';
+      }
+
+      const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+      const newGame = new Chess(newFen);
+      setGame(newGame);
+      return true;
+    } catch (error) {
+      console.error("Error moving piece in setup:", error);
+      return false;
+    }
+  }, [setupMode, game]);
   const onImportPgn = useCallback((pgnText: string) => {
     try {
       const g = new Chess();
@@ -472,13 +551,13 @@ const Index: React.FC = () => {
                     <div className="rounded-xl border bg-card p-3 shadow-sm">
                       <Chessboard
                         position={game.fen()}
-                        onPieceDrop={setupMode ? () => false : onDrop}
+                        onPieceDrop={setupMode ? onSetupPieceDrop : onDrop}
                         onSquareClick={setupMode ? onSquareClick : undefined}
                         boardWidth={boardSize}
                         customBoardStyle={{ borderRadius: 12 }}
                         customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
                         customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
-                        arePiecesDraggable={!setupMode}
+                        arePiecesDraggable={true}
                         animationDuration={200}
                         boardOrientation={orientation}
                         showBoardNotation={true}

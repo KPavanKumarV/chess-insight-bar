@@ -48,16 +48,6 @@ export const PieceSelector: React.FC<PieceSelectorProps> = ({
             </Button>
           ))}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={selectedPiece === null ? "default" : "outline"}
-            size="sm"
-            onClick={() => onPieceSelect(null)}
-            className="flex-1"
-          >
-            Eraser
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
