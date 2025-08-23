@@ -99,6 +99,8 @@ const Index: React.FC = () => {
   const analyzingCountRef = useRef(0);
   const [setupMode, setSetupMode] = useState(false);
   const [selectedPiece, setSelectedPiece] = useState<PieceType | null>(null);
+  const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
+  const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
 
   const boardSize = useMemo(() => (isMobile ? 320 : 560), [isMobile]);
 
@@ -135,8 +137,10 @@ const Index: React.FC = () => {
       const afterMat = materialBalanceCp(next.fen());
       const sacrificial = (move.color === "w" ? afterMat - beforeMat : beforeMat - afterMat) < 0;
 
-      // Update board state
+      // Update board state and clear selection
       setGame(next);
+      setSelectedSquare(null);
+      setPossibleMoves([]);
 
       // Create a temporary move record immediately
       const ply = next.history().length; // after pushing
@@ -188,6 +192,8 @@ const Index: React.FC = () => {
     setGame(fresh);
     setMoves([]);
     setSetupMode(false);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
   }, []);
 
   const onClearBoard = useCallback(() => {
@@ -230,82 +236,131 @@ const Index: React.FC = () => {
     
     setGame(newGame);
     setMoves((prev) => prev.slice(0, -1));
+    setSelectedSquare(null);
+    setPossibleMoves([]);
   }, [moves, setupMode]);
 
-  const onSquareClick = useCallback((square: Square) => {
-    if (!setupMode || selectedPiece === null) return;
-
+  // Function to get possible moves for a selected square
+  const getPossibleMoves = useCallback((square: Square): Square[] => {
+    if (setupMode) return [];
+    
     try {
-      const currentFen = game.fen();
-      const fenParts = currentFen.split(' ');
-      const boardPart = fenParts[0];
-      
-      // Convert FEN board to 2D array
-      const rows = boardPart.split('/');
-      const board: (string | null)[][] = [];
-      
-      for (let i = 0; i < 8; i++) {
-        const row: (string | null)[] = [];
-        const rowStr = rows[i];
-        for (let j = 0; j < rowStr.length; j++) {
-          const char = rowStr[j];
-          if (/[1-8]/.test(char)) {
-            // Empty squares
-            const emptyCount = parseInt(char);
-            for (let k = 0; k < emptyCount; k++) {
-              row.push(null);
-            }
-          } else {
-            // Piece
-            row.push(char);
-          }
-        }
-        board.push(row);
-      }
-
-      // Get square coordinates (a1 = [7,0], h8 = [0,7])
-      const file = square.charCodeAt(0) - 'a'.charCodeAt(0); // 0-7
-      const rank = parseInt(square[1]) - 1; // 0-7
-      const boardRow = 7 - rank; // Flip rank for board array index
-      
-      // Place piece
-      board[boardRow][file] = selectedPiece;
-
-      // Convert back to FEN
-      let newBoardPart = '';
-      for (let i = 0; i < 8; i++) {
-        let rowStr = '';
-        let emptyCount = 0;
-        
-        for (let j = 0; j < 8; j++) {
-          if (board[i][j] === null) {
-            emptyCount++;
-          } else {
-            if (emptyCount > 0) {
-              rowStr += emptyCount.toString();
-              emptyCount = 0;
-            }
-            rowStr += board[i][j];
-          }
-        }
-        
-        if (emptyCount > 0) {
-          rowStr += emptyCount.toString();
-        }
-        
-        newBoardPart += rowStr;
-        if (i < 7) newBoardPart += '/';
-      }
-
-      // Keep other FEN parts the same
-      const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
-      
-      const newGame = new Chess(newFen);
-      setGame(newGame);
-    } catch (error) {
-      console.error("Error placing piece:", error);
+      const moves = game.moves({ square, verbose: true });
+      return moves.map(move => move.to);
+    } catch {
+      return [];
     }
-  }, [setupMode, selectedPiece, game]);
+  }, [game, setupMode]);
+
+  const onSquareClick = useCallback((square: Square) => {
+    if (setupMode) {
+      // Setup mode: place pieces
+      if (selectedPiece === null) return;
+
+      try {
+        const currentFen = game.fen();
+        const fenParts = currentFen.split(' ');
+        const boardPart = fenParts[0];
+        
+        // Convert FEN board to 2D array
+        const rows = boardPart.split('/');
+        const board: (string | null)[][] = [];
+        
+        for (let i = 0; i < 8; i++) {
+          const row: (string | null)[] = [];
+          const rowStr = rows[i];
+          for (let j = 0; j < rowStr.length; j++) {
+            const char = rowStr[j];
+            if (/[1-8]/.test(char)) {
+              // Empty squares
+              const emptyCount = parseInt(char);
+              for (let k = 0; k < emptyCount; k++) {
+                row.push(null);
+              }
+            } else {
+              // Piece
+              row.push(char);
+            }
+          }
+          board.push(row);
+        }
+
+        // Get square coordinates (a1 = [7,0], h8 = [0,7])
+        const file = square.charCodeAt(0) - 'a'.charCodeAt(0); // 0-7
+        const rank = parseInt(square[1]) - 1; // 0-7
+        const boardRow = 7 - rank; // Flip rank for board array index
+        
+        // Place piece
+        board[boardRow][file] = selectedPiece;
+
+        // Convert back to FEN
+        let newBoardPart = '';
+        for (let i = 0; i < 8; i++) {
+          let rowStr = '';
+          let emptyCount = 0;
+          
+          for (let j = 0; j < 8; j++) {
+            if (board[i][j] === null) {
+              emptyCount++;
+            } else {
+              if (emptyCount > 0) {
+                rowStr += emptyCount.toString();
+                emptyCount = 0;
+              }
+              rowStr += board[i][j];
+            }
+          }
+          
+          if (emptyCount > 0) {
+            rowStr += emptyCount.toString();
+          }
+          
+          newBoardPart += rowStr;
+          if (i < 7) newBoardPart += '/';
+        }
+
+        // Keep other FEN parts the same
+        const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+        
+        const newGame = new Chess(newFen);
+        setGame(newGame);
+      } catch (error) {
+        console.error("Error placing piece:", error);
+      }
+    } else {
+      // Play mode: select pieces and show possible moves
+      if (selectedSquare === square) {
+        // Clicking the same square deselects it
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+      } else {
+        // Check if there's a piece on this square and it belongs to the current player
+        const piece = game.get(square);
+        if (piece && piece.color === game.turn()) {
+          setSelectedSquare(square);
+          setPossibleMoves(getPossibleMoves(square));
+        } else if (selectedSquare && possibleMoves.includes(square)) {
+          // Try to make a move from selected square to this square
+          try {
+            const move = game.move({ from: selectedSquare, to: square, promotion: "q" });
+            if (move) {
+              setGame(new Chess(game.fen()));
+              setSelectedSquare(null);
+              setPossibleMoves([]);
+            }
+          } catch {
+            // Invalid move, just deselect
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+          }
+        } else {
+          // Clicked empty square or opponent piece, deselect
+          setSelectedSquare(null);
+          setPossibleMoves([]);
+        }
+      }
+    }
+  }, [setupMode, selectedPiece, game, selectedSquare, possibleMoves, getPossibleMoves]);
 
   const onSetupPieceDrop = useCallback((sourceSquare: Square, targetSquare: Square, piece: string) => {
     if (!setupMode) return false;
@@ -439,6 +494,38 @@ const Index: React.FC = () => {
 
   const sideToMove = game.turn() === "w" ? "White" : "Black";
 
+  // Custom square styles for move highlighting
+  const customSquareStyles = useMemo(() => {
+    const styles: Record<string, React.CSSProperties> = {};
+    
+    // Highlight selected square
+    if (selectedSquare && !setupMode) {
+      styles[selectedSquare] = {
+        backgroundColor: 'rgba(255, 255, 0, 0.4)',
+      };
+    }
+    
+    // Show dots on possible move squares
+    possibleMoves.forEach(square => {
+      const piece = game.get(square);
+      if (piece) {
+        // Capture square - red dot
+        styles[square] = {
+          background: 'radial-gradient(circle, rgba(255, 0, 0, 0.3) 85%, transparent 85%)',
+          backgroundSize: '100%',
+        };
+      } else {
+        // Empty square - gray dot  
+        styles[square] = {
+          background: 'radial-gradient(circle, rgba(0, 0, 0, 0.2) 25%, transparent 26%)',
+          backgroundSize: '100%',
+        };
+      }
+    });
+    
+    return styles;
+  }, [selectedSquare, possibleMoves, setupMode, game]);
+
   return (
     <>
       <Helmet>
@@ -552,11 +639,12 @@ const Index: React.FC = () => {
                       <Chessboard
                         position={game.fen()}
                         onPieceDrop={setupMode ? onSetupPieceDrop : onDrop}
-                        onSquareClick={setupMode ? onSquareClick : undefined}
+                        onSquareClick={onSquareClick}
                         boardWidth={boardSize}
                         customBoardStyle={{ borderRadius: 12 }}
                         customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
                         customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
+                        customSquareStyles={customSquareStyles}
                         arePiecesDraggable={true}
                         animationDuration={200}
                         boardOrientation={orientation}
