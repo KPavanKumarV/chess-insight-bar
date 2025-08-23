@@ -197,13 +197,15 @@ const Index: React.FC = () => {
   }, []);
 
   const onClearBoard = useCallback(() => {
-    // Create an empty board FEN (no pieces, white to move)
-    const emptyFen = "8/8/8/8/8/8/8/8 w - - 0 1";
+    // Create an empty board FEN with only kings (minimum valid position)
+    const minimalFen = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
     try {
-      const emptyGame = new Chess(emptyFen);
+      const emptyGame = new Chess(minimalFen);
       setGame(emptyGame);
       setMoves([]);
       setSetupMode(true);
+      setSelectedSquare(null);
+      setPossibleMoves([]);
     } catch (error) {
       console.error("Error creating empty board:", error);
     }
@@ -435,12 +437,50 @@ const Index: React.FC = () => {
         if (i < 7) newBoardPart += '/';
       }
 
+      // Validate the new FEN before applying it
       const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
-      const newGame = new Chess(newFen);
-      setGame(newGame);
+      
+      // Check if the position has required pieces for basic validation
+      const hasWhiteKing = newBoardPart.includes('K');
+      const hasBlackKing = newBoardPart.includes('k');
+      
+      // If we're removing a king, use a minimal valid position instead
+      if (!hasWhiteKing || !hasBlackKing) {
+        let fixedFen = newFen;
+        if (!hasWhiteKing && !hasBlackKing) {
+          // Both kings missing, place them in corners
+          fixedFen = `${newBoardPart.replace(/8/g, '4k3').replace(/^4k3/, '4K3')} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+        } else if (!hasWhiteKing) {
+          // Add white king to a1
+          const parts = newBoardPart.split('/');
+          parts[7] = parts[7].replace(/8/, 'K7').replace(/^(\d+)/, (match, num) => {
+            const n = parseInt(num);
+            return n === 1 ? 'K' : `K${n-1}`;
+          });
+          if (!parts[7].includes('K')) parts[7] = 'K' + parts[7].slice(1);
+          fixedFen = `${parts.join('/')} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+        } else if (!hasBlackKing) {
+          // Add black king to a8  
+          const parts = newBoardPart.split('/');
+          parts[0] = parts[0].replace(/8/, 'k7').replace(/^(\d+)/, (match, num) => {
+            const n = parseInt(num);
+            return n === 1 ? 'k' : `k${n-1}`;
+          });
+          if (!parts[0].includes('k')) parts[0] = 'k' + parts[0].slice(1);
+          fixedFen = `${parts.join('/')} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+        }
+        
+        const newGame = new Chess(fixedFen);
+        setGame(newGame);
+      } else {
+        const newGame = new Chess(newFen);
+        setGame(newGame);
+      }
+      
       return true;
     } catch (error) {
       console.error("Error moving piece in setup:", error);
+      // If FEN is still invalid, just revert to the current game state
       return false;
     }
   }, [setupMode, game]);
@@ -660,13 +700,13 @@ const Index: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="text-sm text-muted-foreground">
                         {setupMode ? (
-                          <span className="font-semibold text-primary">Setup Mode: Click squares to place pieces</span>
+                          <span className="font-semibold text-primary">Setup Mode: Click squares to place pieces or drag pieces off board to remove</span>
                         ) : (
                           <>To move: <span className="font-semibold text-foreground">{sideToMove}</span></>
                         )}
                       </div>
                       <div className="text-sm">
-                        {currentEval && !setupMode && (
+                        {currentEval && (
                           <span className="text-muted-foreground">
                             Eval: <span className="tabular-nums">{(mapEvalToCentipawns(currentEval) / 100).toFixed(2)}</span>
                           </span>
@@ -674,17 +714,15 @@ const Index: React.FC = () => {
                       </div>
                     </div>
                     <Separator className="my-3" />
-                    {!setupMode && (
-                      <div className="text-sm">
-                        {bestMoveSanNow ? (
-                          <span className="text-muted-foreground">
-                            Best move now: <span className="font-medium text-foreground">{bestMoveSanNow}</span>
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">Calculating best move…</span>
-                        )}
-                      </div>
-                    )}
+                    <div className="text-sm">
+                      {bestMoveSanNow ? (
+                        <span className="text-muted-foreground">
+                          Best move: <span className="font-medium text-foreground">{bestMoveSanNow}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Calculating best move…</span>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
