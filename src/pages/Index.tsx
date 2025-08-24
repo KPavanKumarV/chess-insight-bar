@@ -20,20 +20,22 @@ import Confetti from "react-confetti";
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
-
 function uciToSan(baseFen: string, uci: string): string | undefined {
   try {
     const game = new Chess(baseFen);
     const from = uci.slice(0, 2) as Square;
     const to = uci.slice(2, 4) as Square;
-    const promo = uci.length > 4 ? (uci[4] as any) : undefined;
-    const move = game.move({ from, to, promotion: promo || "q" });
+    const promo = uci.length > 4 ? uci[4] as any : undefined;
+    const move = game.move({
+      from,
+      to,
+      promotion: promo || "q"
+    });
     return move?.san;
   } catch {
     return undefined;
   }
 }
-
 function materialBalanceCp(fen: string): number {
   const pieceValues: Record<string, number> = {
     p: 100,
@@ -41,7 +43,7 @@ function materialBalanceCp(fen: string): number {
     b: 330,
     r: 500,
     q: 900,
-    k: 0,
+    k: 0
   };
   const [board] = fen.split(" ");
   let white = 0;
@@ -49,33 +51,23 @@ function materialBalanceCp(fen: string): number {
   for (const c of board) {
     if (c === "/" || c === " ") continue;
     if (/[1-8]/.test(c)) continue;
-    if (c === c.toUpperCase()) white += pieceValues[c.toLowerCase()] || 0;
-    else black += pieceValues[c] || 0;
+    if (c === c.toUpperCase()) white += pieceValues[c.toLowerCase()] || 0;else black += pieceValues[c] || 0;
   }
   return white - black; // in centipawns
 }
-
-function categorizeMove(
-  evalBefore: EngineEval,
-  evalAfter: EngineEval,
-  playedIsBest: boolean,
-  moveWasSac: boolean,
-  ply: number,
-  playerColor: "w" | "b"
-): MoveCategory {
+function categorizeMove(evalBefore: EngineEval, evalAfter: EngineEval, playedIsBest: boolean, moveWasSac: boolean, ply: number, playerColor: "w" | "b"): MoveCategory {
   // Theory heuristic: first 12 plies, small eval swing
   const beforeCp = mapEvalToCentipawns(evalBefore);
   const afterCp = mapEvalToCentipawns(evalAfter);
-  
+
   // Calculate evaluation change from the perspective of the player who moved
   // Evaluations are always from White's perspective, so we need to flip for Black
-  const evalChange = playerColor === "w" ? (afterCp - beforeCp) : (beforeCp - afterCp);
+  const evalChange = playerColor === "w" ? afterCp - beforeCp : beforeCp - afterCp;
   const evalLoss = Math.max(0, -evalChange); // How much the player lost by this move
 
   if (ply <= 12 && Math.abs(afterCp - beforeCp) < 40 && playedIsBest) {
     return "Theory";
   }
-
   if (playedIsBest) {
     if (moveWasSac && evalChange > 100) return "Brilliant";
     if (evalChange > 100) return "Great";
@@ -84,16 +76,17 @@ function categorizeMove(
 
   // Categorize based on evaluation loss
   if (evalLoss >= 300) return "Blunder";
-  if (evalLoss >= 100) return "Mistake";  
+  if (evalLoss >= 100) return "Mistake";
   if (evalLoss >= 50) return "Inaccuracy";
   return "Good";
 }
-
 const Index: React.FC = () => {
   const isMobile = useIsMobile();
   const [game, setGame] = useState(() => new Chess());
   const [depth, setDepth] = useState(14);
-  const { analyze } = useStockfish();
+  const {
+    analyze
+  } = useStockfish();
   const [moves, setMoves] = useState<MoveRecord[]>([]);
   const [currentEval, setCurrentEval] = useState<EngineEval | undefined>(undefined);
   const [currentBestMove, setCurrentBestMove] = useState<string | undefined>(undefined);
@@ -106,9 +99,10 @@ const Index: React.FC = () => {
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [gameResult, setGameResult] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  const boardSize = useMemo(() => (isMobile ? 320 : 560), [isMobile]);
+  const {
+    toast
+  } = useToast();
+  const boardSize = useMemo(() => isMobile ? 320 : 560, [isMobile]);
 
   // Analyze current position continuously (best move + eval)
   const analyzeCurrentPosition = useCallback(async () => {
@@ -117,7 +111,6 @@ const Index: React.FC = () => {
       setAnalyzing(false);
       return;
     }
-    
     analyzingCountRef.current += 1;
     setAnalyzing(true);
     try {
@@ -129,29 +122,26 @@ const Index: React.FC = () => {
       setAnalyzing(analyzingCountRef.current > 0);
     }
   }, [analyze, game, depth, setupMode]);
-
   useEffect(() => {
     analyzeCurrentPosition();
-    
+
     // Check for game over conditions
     if (game.isGameOver()) {
       let result = "";
       let winner = "";
-      
       if (game.isCheckmate()) {
         const currentPlayer = game.turn() === 'w' ? 'White' : 'Black';
         const winningPlayer = game.turn() === 'w' ? 'Black' : 'White';
         winner = winningPlayer;
         result = `${winningPlayer} won by checkmate!`;
-        
+
         // Show confetti and celebration
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 5000);
-        
         toast({
           title: "Game Over!",
           description: result,
-          duration: 5000,
+          duration: 5000
         });
       } else if (game.isDraw()) {
         result = "Game ended in a draw";
@@ -162,87 +152,81 @@ const Index: React.FC = () => {
         } else if (game.isThreefoldRepetition()) {
           result = "Draw by threefold repetition";
         }
-        
         toast({
           title: "Game Over!",
           description: result,
-          duration: 5000,
+          duration: 5000
         });
       }
-      
       setGameResult(result);
     } else {
       setGameResult(null);
       setShowConfetti(false);
     }
-    
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.fen(), depth, setupMode]);
+  const onDrop = useCallback((sourceSquare: Square, targetSquare: Square, _piece: string) => {
+    const moveBeforeEval = currentEval;
+    const preBestMove = currentBestMove;
+    const preFen = game.fen();
+    const next = new Chess(preFen);
+    const move = next.move({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q"
+    });
+    if (!move) return false;
 
-  const onDrop = useCallback(
-    (sourceSquare: Square, targetSquare: Square, _piece: string) => {
-      const moveBeforeEval = currentEval;
-      const preBestMove = currentBestMove;
-      const preFen = game.fen();
-      const next = new Chess(preFen);
-      const move = next.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
-      if (!move) return false;
+    // Compute quick sacrifice heuristic via material change
+    const beforeMat = materialBalanceCp(preFen);
+    const afterMat = materialBalanceCp(next.fen());
+    const sacrificial = (move.color === "w" ? afterMat - beforeMat : beforeMat - afterMat) < 0;
 
-      // Compute quick sacrifice heuristic via material change
-      const beforeMat = materialBalanceCp(preFen);
-      const afterMat = materialBalanceCp(next.fen());
-      const sacrificial = (move.color === "w" ? afterMat - beforeMat : beforeMat - afterMat) < 0;
+    // Update board state and clear selection
+    setGame(next);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
 
-      // Update board state and clear selection
-      setGame(next);
-      setSelectedSquare(null);
-      setPossibleMoves([]);
+    // Create a temporary move record immediately
+    const ply = next.history().length; // after pushing
+    const moveNumber = Math.ceil(ply / 2);
+    const tempRec: MoveRecord = {
+      ply,
+      moveNumber,
+      color: move.color as "w" | "b",
+      san: move.san,
+      uci: `${move.from}${move.to}${move.promotion || ""}`,
+      fenAfter: next.fen()
+    };
+    setMoves(prev => [...prev, tempRec]);
 
-      // Create a temporary move record immediately
-      const ply = next.history().length; // after pushing
-      const moveNumber = Math.ceil(ply / 2);
-      const tempRec: MoveRecord = {
-        ply,
-        moveNumber,
-        color: move.color as "w" | "b",
-        san: move.san,
-        uci: `${move.from}${move.to}${move.promotion || ""}`,
-        fenAfter: next.fen(),
+    // Fire-and-forget engine analysis (before & after)
+    (async () => {
+      const fallback = {
+        eval: {
+          type: "cp",
+          value: 0
+        } as EngineEval,
+        bestMove: "0000"
       };
-      setMoves((prev) => [...prev, tempRec]);
-
-      // Fire-and-forget engine analysis (before & after)
-      (async () => {
-        const fallback = { eval: { type: "cp", value: 0 } as EngineEval, bestMove: "0000" };
-        const resBefore = (await analyze(preFen, depth).catch(() => fallback));
-        const resAfter = (await analyze(next.fen(), depth).catch(() => fallback));
-        const playedIsBest = resBefore.bestMove.slice(0, 4) === `${move.from}${move.to}`.toLowerCase();
-        const bestSan = uciToSan(preFen, resBefore.bestMove);
-
-        setMoves((prev) =>
-          prev.map((m) =>
-            m.ply === ply
-              ? {
-                  ...m,
-                  evalBeforeCp: mapEvalToCentipawns(resBefore.eval),
-                  evalAfterCp: mapEvalToCentipawns(resAfter.eval),
-                  bestMoveUci: resBefore.bestMove,
-                  bestMoveSan: bestSan,
-                  category: categorizeMove(resBefore.eval, resAfter.eval, !!playedIsBest, sacrificial, ply, move.color),
-                }
-              : m
-          )
-        );
-
-        setCurrentEval(resAfter.eval);
-        setCurrentBestMove(resAfter.bestMove);
-      })();
-
-      return true;
-    },
-    [analyze, currentBestMove, currentEval, depth, game]
-  );
-
+      const resBefore = await analyze(preFen, depth).catch(() => fallback);
+      const resAfter = await analyze(next.fen(), depth).catch(() => fallback);
+      const playedIsBest = resBefore.bestMove.slice(0, 4) === `${move.from}${move.to}`.toLowerCase();
+      const bestSan = uciToSan(preFen, resBefore.bestMove);
+      setMoves(prev => prev.map(m => m.ply === ply ? {
+        ...m,
+        evalBeforeCp: mapEvalToCentipawns(resBefore.eval),
+        evalAfterCp: mapEvalToCentipawns(resAfter.eval),
+        bestMoveUci: resBefore.bestMove,
+        bestMoveSan: bestSan,
+        category: categorizeMove(resBefore.eval, resAfter.eval, !!playedIsBest, sacrificial, ply, move.color)
+      } : m));
+      setCurrentEval(resAfter.eval);
+      setCurrentBestMove(resAfter.bestMove);
+    })();
+    return true;
+  }, [analyze, currentBestMove, currentEval, depth, game]);
   const onReset = useCallback(() => {
     const fresh = new Chess();
     setGame(fresh);
@@ -253,7 +237,6 @@ const Index: React.FC = () => {
     setShowConfetti(false);
     setGameResult(null);
   }, []);
-
   const onClearBoard = useCallback(() => {
     // Create an empty board FEN with only kings (minimum valid position)
     const minimalFen = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
@@ -270,21 +253,19 @@ const Index: React.FC = () => {
       console.error("Error creating empty board:", error);
     }
   }, []);
-
   const onUndo = useCallback(() => {
     if (setupMode) return; // Don't allow undo in setup mode
     if (moves.length === 0) return;
-    
+
     // Get the previous position by replaying all moves except the last one
     const newGame = new Chess();
     const movesToReplay = moves.slice(0, -1);
-    
     for (const moveRecord of movesToReplay) {
       try {
         const move = newGame.move({
           from: moveRecord.uci.slice(0, 2) as Square,
           to: moveRecord.uci.slice(2, 4) as Square,
-          promotion: moveRecord.uci.length > 4 ? (moveRecord.uci[4] as any) : undefined
+          promotion: moveRecord.uci.length > 4 ? moveRecord.uci[4] as any : undefined
         });
         if (!move) {
           console.error("Failed to replay move:", moveRecord);
@@ -295,9 +276,8 @@ const Index: React.FC = () => {
         return;
       }
     }
-    
     setGame(newGame);
-    setMoves((prev) => prev.slice(0, -1));
+    setMoves(prev => prev.slice(0, -1));
     setSelectedSquare(null);
     setPossibleMoves([]);
   }, [moves, setupMode]);
@@ -305,29 +285,28 @@ const Index: React.FC = () => {
   // Function to get possible moves for a selected square
   const getPossibleMoves = useCallback((square: Square): Square[] => {
     if (setupMode) return [];
-    
     try {
-      const moves = game.moves({ square, verbose: true });
+      const moves = game.moves({
+        square,
+        verbose: true
+      });
       return moves.map(move => move.to);
     } catch {
       return [];
     }
   }, [game, setupMode]);
-
   const onSquareClick = useCallback((square: Square) => {
     if (setupMode) {
       // Setup mode: place pieces
       if (selectedPiece === null) return;
-
       try {
         const currentFen = game.fen();
         const fenParts = currentFen.split(' ');
         const boardPart = fenParts[0];
-        
+
         // Convert FEN board to 2D array
         const rows = boardPart.split('/');
         const board: (string | null)[][] = [];
-        
         for (let i = 0; i < 8; i++) {
           const row: (string | null)[] = [];
           const rowStr = rows[i];
@@ -351,7 +330,7 @@ const Index: React.FC = () => {
         const file = square.charCodeAt(0) - 'a'.charCodeAt(0); // 0-7
         const rank = parseInt(square[1]) - 1; // 0-7
         const boardRow = 7 - rank; // Flip rank for board array index
-        
+
         // Place piece
         board[boardRow][file] = selectedPiece;
 
@@ -360,7 +339,6 @@ const Index: React.FC = () => {
         for (let i = 0; i < 8; i++) {
           let rowStr = '';
           let emptyCount = 0;
-          
           for (let j = 0; j < 8; j++) {
             if (board[i][j] === null) {
               emptyCount++;
@@ -372,18 +350,15 @@ const Index: React.FC = () => {
               rowStr += board[i][j];
             }
           }
-          
           if (emptyCount > 0) {
             rowStr += emptyCount.toString();
           }
-          
           newBoardPart += rowStr;
           if (i < 7) newBoardPart += '/';
         }
 
         // Keep other FEN parts the same
         const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
-        
         const newGame = new Chess(newFen);
         setGame(newGame);
       } catch (error) {
@@ -404,7 +379,11 @@ const Index: React.FC = () => {
         } else if (selectedSquare && possibleMoves.includes(square)) {
           // Try to make a move from selected square to this square
           try {
-            const move = game.move({ from: selectedSquare, to: square, promotion: "q" });
+            const move = game.move({
+              from: selectedSquare,
+              to: square,
+              promotion: "q"
+            });
             if (move) {
               setGame(new Chess(game.fen()));
               setSelectedSquare(null);
@@ -423,19 +402,16 @@ const Index: React.FC = () => {
       }
     }
   }, [setupMode, selectedPiece, game, selectedSquare, possibleMoves, getPossibleMoves]);
-
   const onSetupPieceDrop = useCallback((sourceSquare: Square, targetSquare: Square, piece: string) => {
     if (!setupMode) return false;
-    
     try {
       const currentFen = game.fen();
       const fenParts = currentFen.split(' ');
       const boardPart = fenParts[0];
-      
+
       // Convert FEN board to 2D array
       const rows = boardPart.split('/');
       const board: (string | null)[][] = [];
-      
       for (let i = 0; i < 8; i++) {
         const row: (string | null)[] = [];
         const rowStr = rows[i];
@@ -461,7 +437,6 @@ const Index: React.FC = () => {
 
       // Check if target is a valid square (a1-h8) and not the same as source
       const isValidTarget = /^[a-h][1-8]$/.test(targetSquare) && targetSquare !== sourceSquare;
-      
       if (isValidTarget) {
         // Place piece on target square only if it's a valid different square
         const targetFile = targetSquare.charCodeAt(0) - 'a'.charCodeAt(0);
@@ -476,7 +451,6 @@ const Index: React.FC = () => {
       for (let i = 0; i < 8; i++) {
         let rowStr = '';
         let emptyCount = 0;
-        
         for (let j = 0; j < 8; j++) {
           if (board[i][j] === null) {
             emptyCount++;
@@ -488,18 +462,15 @@ const Index: React.FC = () => {
             rowStr += board[i][j];
           }
         }
-        
         if (emptyCount > 0) {
           rowStr += emptyCount.toString();
         }
-        
         newBoardPart += rowStr;
         if (i < 7) newBoardPart += '/';
       }
 
       // Create the new FEN
       const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
-      
       try {
         // Try to set position with the new FEN
         // In setup mode, we allow any position configuration including missing kings
@@ -521,7 +492,6 @@ const Index: React.FC = () => {
           setGame(emptyGame);
         }
       }
-      
       return true;
     } catch (error) {
       console.error("Error moving piece in setup:", error);
@@ -533,26 +503,34 @@ const Index: React.FC = () => {
   const onImportPgn = useCallback((pgnText: string) => {
     try {
       const g = new Chess();
-      
+
       // Try to load the PGN using chess.js loadPgn method
-      g.loadPgn(pgnText, { strict: false });
+      g.loadPgn(pgnText, {
+        strict: false
+      });
 
       // Check for custom starting position (FEN tag)
       const fenMatch = pgnText.match(/\[FEN\s+"([^"]+)"\]/i);
       const startFen = fenMatch?.[1];
-      
+
       // Get all moves that were played
-      const verboseMoves = g.history({ verbose: true }) as Array<any>;
-      
+      const verboseMoves = g.history({
+        verbose: true
+      }) as Array<any>;
+
       // Create a new game from the starting position
       const temp = new Chess(startFen || undefined);
       const records: MoveRecord[] = [];
       let ply = 0;
-      
+
       // Replay all moves to build our move list
       for (const m of verboseMoves) {
         ply += 1;
-        temp.move({ from: m.from, to: m.to, promotion: m.promotion || "q" });
+        temp.move({
+          from: m.from,
+          to: m.to,
+          promotion: m.promotion || "q"
+        });
         const moveNumber = Math.ceil(ply / 2);
         records.push({
           ply,
@@ -560,10 +538,10 @@ const Index: React.FC = () => {
           color: m.color,
           san: m.san,
           uci: `${m.from}${m.to}${m.promotion || ""}`,
-          fenAfter: temp.fen(),
+          fenAfter: temp.fen()
         });
       }
-      
+
       // Update game state with final position
       setGame(temp);
       setMoves(records);
@@ -572,25 +550,23 @@ const Index: React.FC = () => {
       console.error("Error loading PGN:", error);
     }
   }, []);
-
   const bestMoveSanNow = useMemo(() => {
     if (!currentBestMove) return undefined;
     return uciToSan(game.fen(), currentBestMove);
   }, [currentBestMove, game]);
-
   const sideToMove = game.turn() === "w" ? "White" : "Black";
 
   // Custom square styles for move highlighting
   const customSquareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {};
-    
+
     // Highlight selected square
     if (selectedSquare && !setupMode) {
       styles[selectedSquare] = {
-        backgroundColor: 'rgba(255, 255, 0, 0.4)',
+        backgroundColor: 'rgba(255, 255, 0, 0.4)'
       };
     }
-    
+
     // Show dots on possible move squares
     possibleMoves.forEach(square => {
       const piece = game.get(square);
@@ -598,42 +574,28 @@ const Index: React.FC = () => {
         // Capture square - red dot
         styles[square] = {
           background: 'radial-gradient(circle, rgba(255, 0, 0, 0.3) 85%, transparent 85%)',
-          backgroundSize: '100%',
+          backgroundSize: '100%'
         };
       } else {
         // Empty square - gray dot  
         styles[square] = {
           background: 'radial-gradient(circle, rgba(0, 0, 0, 0.2) 25%, transparent 26%)',
-          backgroundSize: '100%',
+          backgroundSize: '100%'
         };
       }
     });
-    
     return styles;
   }, [selectedSquare, possibleMoves, setupMode, game]);
-
-  return (
-    <>
+  return <>
       <Helmet>
         <title>Chess Insight Bar - Advanced Chess Analysis Engine</title>
-        <meta
-          name="description"
-          content="Professional chess analysis platform powered by Stockfish engine. Analyze positions, import PGN files, and get real-time evaluations with move categorization."
-        />
+        <meta name="description" content="Professional chess analysis platform powered by Stockfish engine. Analyze positions, import PGN files, and get real-time evaluations with move categorization." />
         <link rel="canonical" href="/" />
       </Helmet>
 
       <div className="min-h-screen bg-background app-gradient">
         {/* Confetti for checkmate celebration */}
-        {showConfetti && (
-          <Confetti
-            width={window.innerWidth}
-            height={window.innerHeight}
-            numberOfPieces={200}
-            recycle={false}
-            colors={gameResult?.includes('White') ? ['#ffffff', '#f0f0f0', '#e0e0e0'] : ['#000000', '#333333', '#555555']}
-          />
-        )}
+        {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={200} recycle={false} colors={gameResult?.includes('White') ? ['#ffffff', '#f0f0f0', '#e0e0e0'] : ['#000000', '#333333', '#555555']} />}
         {/* Navigation */}
         <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-16 items-center">
@@ -676,13 +638,10 @@ const Index: React.FC = () => {
               <p className="text-muted-foreground">Drag and drop pieces to analyze positions</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => setOrientation((o) => (o === "white" ? "black" : "white"))}>
+              <Button variant="secondary" onClick={() => setOrientation(o => o === "white" ? "black" : "white")}>
                 Flip Board
               </Button>
-              <Button 
-                variant={setupMode ? "default" : "secondary"} 
-                onClick={() => setSetupMode(!setupMode)}
-              >
+              <Button variant={setupMode ? "default" : "secondary"} onClick={() => setSetupMode(!setupMode)}>
                 {setupMode ? "Play Mode" : "Setup Mode"}
               </Button>
               <Button variant="secondary" onClick={onClearBoard}>
@@ -695,12 +654,7 @@ const Index: React.FC = () => {
             </div>
           </div>
 
-          {setupMode && (
-            <PieceSelector 
-              selectedPiece={selectedPiece}
-              onPieceSelect={setSelectedPiece}
-            />
-          )}
+          {setupMode && <PieceSelector selectedPiece={selectedPiece} onPieceSelect={setSelectedPiece} />}
 
           <Card className="mb-6">
             <CardHeader className="pb-2">
@@ -710,13 +664,7 @@ const Index: React.FC = () => {
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">Depth</span>
                 <div className="flex-1">
-                  <Slider
-                    value={[depth]}
-                    min={8}
-                    max={22}
-                    step={1}
-                    onValueChange={(v) => setDepth(clamp(v[0], 8, 22))}
-                  />
+                  <Slider value={[depth]} min={8} max={22} step={1} onValueChange={v => setDepth(clamp(v[0], 8, 22))} />
                 </div>
                 <span className="w-10 text-right text-sm tabular-nums">{depth}</span>
               </div>
@@ -733,20 +681,13 @@ const Index: React.FC = () => {
                   <EvalBar evalNow={currentEval} analyzing={analyzing} heightPx={boardSize} />
                   <div className="max-w-[min(100%,700px)]">
                     <div className="rounded-xl border bg-card p-3 shadow-sm">
-                      <Chessboard
-                        position={game.fen()}
-                        onPieceDrop={setupMode ? onSetupPieceDrop : onDrop}
-                        onSquareClick={onSquareClick}
-                        boardWidth={boardSize}
-                        customBoardStyle={{ borderRadius: 12 }}
-                        customDarkSquareStyle={{ backgroundColor: "hsl(var(--chess-dark-square))" }}
-                        customLightSquareStyle={{ backgroundColor: "hsl(var(--chess-light-square))" }}
-                        customSquareStyles={customSquareStyles}
-                        arePiecesDraggable={true}
-                        animationDuration={200}
-                        boardOrientation={orientation}
-                        showBoardNotation={true}
-                      />
+                      <Chessboard position={game.fen()} onPieceDrop={setupMode ? onSetupPieceDrop : onDrop} onSquareClick={onSquareClick} boardWidth={boardSize} customBoardStyle={{
+                      borderRadius: 12
+                    }} customDarkSquareStyle={{
+                      backgroundColor: "hsl(var(--chess-dark-square))"
+                    }} customLightSquareStyle={{
+                      backgroundColor: "hsl(var(--chess-light-square))"
+                    }} customSquareStyles={customSquareStyles} arePiecesDraggable={true} animationDuration={200} boardOrientation={orientation} showBoardNotation={true} />
                     </div>
                   </div>
                 </div>
@@ -756,29 +697,19 @@ const Index: React.FC = () => {
                   <CardContent className="pt-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="text-sm text-muted-foreground">
-                        {setupMode ? (
-                          <span className="font-semibold text-primary">Setup Mode: Click squares to place pieces or drag pieces off board to remove</span>
-                        ) : (
-                          <>To move: <span className="font-semibold text-foreground">{sideToMove}</span></>
-                        )}
+                        {setupMode ? <span className="font-semibold text-primary">Setup Mode: Click squares to place pieces or drag pieces off board to remove</span> : <>To move: <span className="font-semibold text-foreground">{sideToMove}</span></>}
                       </div>
                       <div className="text-sm">
-                        {currentEval && (
-                          <span className="text-muted-foreground">
+                        {currentEval && <span className="text-muted-foreground">
                             Eval: <span className="tabular-nums">{(mapEvalToCentipawns(currentEval) / 100).toFixed(2)}</span>
-                          </span>
-                        )}
+                          </span>}
                       </div>
                     </div>
                     <Separator className="my-3" />
                     <div className="text-sm">
-                      {bestMoveSanNow ? (
-                        <span className="text-muted-foreground">
+                      {bestMoveSanNow ? <span className="text-muted-foreground">
                           Best move: <span className="font-medium text-foreground">{bestMoveSanNow}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Calculating best move…</span>
-                      )}
+                        </span> : <span className="text-muted-foreground">Calculating best move…</span>}
                     </div>
                   </CardContent>
                 </Card>
@@ -788,7 +719,7 @@ const Index: React.FC = () => {
             {/* Moves list */}
             <aside className="min-h-[200px]">
               <PgnImport onLoad={onImportPgn} />
-              <h2 className="mb-3 text-lg font-semibold">Move List</h2>
+              
               <MoveList moves={moves} />
             </aside>
           </div>
@@ -829,8 +760,6 @@ const Index: React.FC = () => {
           </div>
         </footer>
       </div>
-    </>
-  );
+    </>;
 };
-
 export default Index;
