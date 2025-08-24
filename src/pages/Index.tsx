@@ -12,6 +12,7 @@ import { MoveList, MoveRecord, MoveCategory } from "@/components/chess/MoveList"
 import { EngineEval, useStockfish, mapEvalToCentipawns } from "@/engine/useStockfish";
 import { PgnImport } from "@/components/chess/PgnImport";
 import { PieceSelector, PieceType } from "@/components/chess/PieceSelector";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 // Helpers
 function clamp(n: number, min: number, max: number) {
@@ -588,6 +589,7 @@ const Index: React.FC = () => {
               <div className="w-full flex-1 md:w-auto md:flex-none">
                 <p className="text-sm text-muted-foreground">Professional Chess Analysis Platform</p>
               </div>
+              <ThemeToggle />
             </div>
           </div>
         </nav>
