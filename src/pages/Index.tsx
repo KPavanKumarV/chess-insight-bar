@@ -112,8 +112,8 @@ const Index: React.FC = () => {
 
   // Analyze current position continuously (best move + eval)
   const analyzeCurrentPosition = useCallback(async () => {
-    // Don't analyze if game is over
-    if (game.isGameOver()) {
+    // Don't analyze if game is over or in setup mode
+    if (game.isGameOver() || setupMode) {
       setAnalyzing(false);
       return;
     }
@@ -128,7 +128,7 @@ const Index: React.FC = () => {
       analyzingCountRef.current -= 1;
       setAnalyzing(analyzingCountRef.current > 0);
     }
-  }, [analyze, game, depth]);
+  }, [analyze, game, depth, setupMode]);
 
   useEffect(() => {
     analyzeCurrentPosition();
@@ -177,7 +177,7 @@ const Index: React.FC = () => {
     }
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.fen(), depth]);
+  }, [game.fen(), depth, setupMode]);
 
   const onDrop = useCallback(
     (sourceSquare: Square, targetSquare: Square, _piece: string) => {
@@ -497,44 +497,29 @@ const Index: React.FC = () => {
         if (i < 7) newBoardPart += '/';
       }
 
-      // Validate the new FEN before applying it
+      // Create the new FEN
       const newFen = `${newBoardPart} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
       
-      // Check if the position has required pieces for basic validation
-      const hasWhiteKing = newBoardPart.includes('K');
-      const hasBlackKing = newBoardPart.includes('k');
-      
-      // If we're removing a king, use a minimal valid position instead
-      if (!hasWhiteKing || !hasBlackKing) {
-        let fixedFen = newFen;
-        if (!hasWhiteKing && !hasBlackKing) {
-          // Both kings missing, place them in corners
-          fixedFen = `${newBoardPart.replace(/8/g, '4k3').replace(/^4k3/, '4K3')} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
-        } else if (!hasWhiteKing) {
-          // Add white king to a1
-          const parts = newBoardPart.split('/');
-          parts[7] = parts[7].replace(/8/, 'K7').replace(/^(\d+)/, (match, num) => {
-            const n = parseInt(num);
-            return n === 1 ? 'K' : `K${n-1}`;
-          });
-          if (!parts[7].includes('K')) parts[7] = 'K' + parts[7].slice(1);
-          fixedFen = `${parts.join('/')} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
-        } else if (!hasBlackKing) {
-          // Add black king to a8  
-          const parts = newBoardPart.split('/');
-          parts[0] = parts[0].replace(/8/, 'k7').replace(/^(\d+)/, (match, num) => {
-            const n = parseInt(num);
-            return n === 1 ? 'k' : `k${n-1}`;
-          });
-          if (!parts[0].includes('k')) parts[0] = 'k' + parts[0].slice(1);
-          fixedFen = `${parts.join('/')} ${fenParts[1]} ${fenParts[2]} ${fenParts[3]} ${fenParts[4]} ${fenParts[5]}`;
+      try {
+        // Try to set position with the new FEN
+        // In setup mode, we allow any position configuration including missing kings
+        const newGame = new Chess();
+        newGame.load(newFen);
+        setGame(newGame);
+      } catch (error) {
+        // If FEN is invalid, create a minimal setup with just the board configuration
+        try {
+          // Try with minimal FEN structure for setup mode
+          const setupFen = `${newBoardPart} w - - 0 1`;
+          const setupGame = new Chess();
+          setupGame.load(setupFen);
+          setGame(setupGame);
+        } catch (error2) {
+          // Last resort: create completely empty board
+          const emptyGame = new Chess();
+          emptyGame.clear();
+          setGame(emptyGame);
         }
-        
-        const newGame = new Chess(fixedFen);
-        setGame(newGame);
-      } else {
-        const newGame = new Chess(newFen);
-        setGame(newGame);
       }
       
       return true;
