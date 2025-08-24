@@ -453,23 +453,23 @@ const Index: React.FC = () => {
         board.push(row);
       }
 
-      // Remove piece from source square
+      // Always remove piece from source square first
       const sourceFile = sourceSquare.charCodeAt(0) - 'a'.charCodeAt(0);
       const sourceRank = parseInt(sourceSquare[1]) - 1;
       const sourceBoardRow = 7 - sourceRank;
       board[sourceBoardRow][sourceFile] = null;
 
-      // Check if target is a valid square (a1-h8)
-      const isValidTarget = /^[a-h][1-8]$/.test(targetSquare);
+      // Check if target is a valid square (a1-h8) and not the same as source
+      const isValidTarget = /^[a-h][1-8]$/.test(targetSquare) && targetSquare !== sourceSquare;
       
       if (isValidTarget) {
-        // Place piece on target square
+        // Place piece on target square only if it's a valid different square
         const targetFile = targetSquare.charCodeAt(0) - 'a'.charCodeAt(0);
         const targetRank = parseInt(targetSquare[1]) - 1;
         const targetBoardRow = 7 - targetRank;
         board[targetBoardRow][targetFile] = piece;
       }
-      // If not valid target, piece is removed (dragged off board)
+      // If not valid target or dragged off board, piece is just removed
 
       // Convert back to FEN
       let newBoardPart = '';
@@ -525,8 +525,9 @@ const Index: React.FC = () => {
       return true;
     } catch (error) {
       console.error("Error moving piece in setup:", error);
-      // If FEN is still invalid, just revert to the current game state
-      return false;
+      // If there's any error, still return true to allow the visual update
+      // The piece will be removed from source even if we can't update the game state
+      return true;
     }
   }, [setupMode, game]);
   const onImportPgn = useCallback((pgnText: string) => {
