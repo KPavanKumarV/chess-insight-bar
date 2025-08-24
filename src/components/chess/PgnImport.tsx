@@ -53,7 +53,7 @@ export const PgnImport: React.FC<PgnImportProps> = ({ onLoad }) => {
               if (f) handleFile(f);
             }}
           />
-          <Button size="sm" variant="secondary" onClick={() => setText("")}>Clear</Button>
+          <Button size="sm" variant="secondary" onClick={() => setText("")} className="-ml-1">Clear</Button>
           <Button size="sm" onClick={onSubmit} disabled={loading || !text.trim()}>
             Load PGN
           </Button>
