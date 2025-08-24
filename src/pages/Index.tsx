@@ -13,6 +13,8 @@ import { EngineEval, useStockfish, mapEvalToCentipawns } from "@/engine/useStock
 import { PgnImport } from "@/components/chess/PgnImport";
 import { PieceSelector, PieceType } from "@/components/chess/PieceSelector";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useToast } from "@/hooks/use-toast";
+import Confetti from "react-confetti";
 
 // Helpers
 function clamp(n: number, min: number, max: number) {
@@ -102,11 +104,20 @@ const Index: React.FC = () => {
   const [selectedPiece, setSelectedPiece] = useState<PieceType | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [gameResult, setGameResult] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const boardSize = useMemo(() => (isMobile ? 320 : 560), [isMobile]);
 
   // Analyze current position continuously (best move + eval)
   const analyzeCurrentPosition = useCallback(async () => {
+    // Don't analyze if game is over
+    if (game.isGameOver()) {
+      setAnalyzing(false);
+      return;
+    }
+    
     analyzingCountRef.current += 1;
     setAnalyzing(true);
     try {
@@ -121,6 +132,50 @@ const Index: React.FC = () => {
 
   useEffect(() => {
     analyzeCurrentPosition();
+    
+    // Check for game over conditions
+    if (game.isGameOver()) {
+      let result = "";
+      let winner = "";
+      
+      if (game.isCheckmate()) {
+        const currentPlayer = game.turn() === 'w' ? 'White' : 'Black';
+        const winningPlayer = game.turn() === 'w' ? 'Black' : 'White';
+        winner = winningPlayer;
+        result = `${winningPlayer} won by checkmate!`;
+        
+        // Show confetti and celebration
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 5000);
+        
+        toast({
+          title: "Game Over!",
+          description: result,
+          duration: 5000,
+        });
+      } else if (game.isDraw()) {
+        result = "Game ended in a draw";
+        if (game.isStalemate()) {
+          result = "Game ended in stalemate";
+        } else if (game.isInsufficientMaterial()) {
+          result = "Draw due to insufficient material";
+        } else if (game.isThreefoldRepetition()) {
+          result = "Draw by threefold repetition";
+        }
+        
+        toast({
+          title: "Game Over!",
+          description: result,
+          duration: 5000,
+        });
+      }
+      
+      setGameResult(result);
+    } else {
+      setGameResult(null);
+      setShowConfetti(false);
+    }
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.fen(), depth]);
 
@@ -195,6 +250,8 @@ const Index: React.FC = () => {
     setSetupMode(false);
     setSelectedSquare(null);
     setPossibleMoves([]);
+    setShowConfetti(false);
+    setGameResult(null);
   }, []);
 
   const onClearBoard = useCallback(() => {
@@ -207,6 +264,8 @@ const Index: React.FC = () => {
       setSetupMode(true);
       setSelectedSquare(null);
       setPossibleMoves([]);
+      setShowConfetti(false);
+      setGameResult(null);
     } catch (error) {
       console.error("Error creating empty board:", error);
     }
@@ -579,6 +638,16 @@ const Index: React.FC = () => {
       </Helmet>
 
       <div className="min-h-screen bg-background app-gradient">
+        {/* Confetti for checkmate celebration */}
+        {showConfetti && (
+          <Confetti
+            width={window.innerWidth}
+            height={window.innerHeight}
+            numberOfPieces={200}
+            recycle={false}
+            colors={gameResult?.includes('White') ? ['#ffffff', '#f0f0f0', '#e0e0e0'] : ['#000000', '#333333', '#555555']}
+          />
+        )}
         {/* Navigation */}
         <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-16 items-center">
