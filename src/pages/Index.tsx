@@ -556,6 +556,18 @@ const Index: React.FC = () => {
   }, [currentBestMove, game]);
   const sideToMove = game.turn() === "w" ? "White" : "Black";
 
+  // Function to execute the best move
+  const executeBestMove = useCallback(() => {
+    if (!currentBestMove || setupMode || game.isGameOver()) return;
+    
+    const from = currentBestMove.slice(0, 2) as Square;
+    const to = currentBestMove.slice(2, 4) as Square;
+    const promotion = currentBestMove.length > 4 ? currentBestMove[4] as any : undefined;
+    
+    // Use the same logic as onDrop to execute the move
+    onDrop(from, to, '');
+  }, [currentBestMove, setupMode, game, onDrop]);
+
   // Custom square styles for move highlighting
   const customSquareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {};
@@ -708,7 +720,13 @@ const Index: React.FC = () => {
                     <Separator className="my-3" />
                     <div className="text-sm">
                       {bestMoveSanNow ? <span className="text-muted-foreground">
-                          Best move: <span className="font-medium text-foreground">{bestMoveSanNow}</span>
+                          Best move: <button 
+                            onClick={executeBestMove}
+                            className="font-medium text-foreground hover:text-primary transition-colors cursor-pointer underline decoration-primary/30 hover:decoration-primary"
+                            disabled={setupMode || game.isGameOver()}
+                          >
+                            {bestMoveSanNow}
+                          </button>
                         </span> : <span className="text-muted-foreground">Calculating best move…</span>}
                     </div>
                   </CardContent>
