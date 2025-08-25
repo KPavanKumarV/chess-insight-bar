@@ -32,7 +32,7 @@ export const PgnImport: React.FC<PgnImportProps> = ({ onLoad }) => {
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Import PGN</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 pb-4">
+      <CardContent className="space-y-3 p-6">
         <div className="space-y-2">
           <Label htmlFor="pgn-text">Paste PGN</Label>
           <Textarea
@@ -43,7 +43,7 @@ export const PgnImport: React.FC<PgnImportProps> = ({ onLoad }) => {
             className="min-h-[120px]"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <input
             id="pgn-file"
             type="file"
@@ -52,8 +52,9 @@ export const PgnImport: React.FC<PgnImportProps> = ({ onLoad }) => {
               const f = e.target.files?.[0];
               if (f) handleFile(f);
             }}
+            className="flex-1 min-w-0"
           />
-          <Button size="sm" variant="secondary" onClick={() => setText("")} className="-ml-1">Clear</Button>
+          <Button size="sm" variant="secondary" onClick={() => setText("")}>Clear</Button>
           <Button size="sm" onClick={onSubmit} disabled={loading || !text.trim()}>
             Load PGN
           </Button>
