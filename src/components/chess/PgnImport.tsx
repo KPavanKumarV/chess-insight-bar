@@ -32,7 +32,7 @@ export const PgnImport: React.FC<PgnImportProps> = ({ onLoad }) => {
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Import PGN</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pb-4">
         <div className="space-y-2">
           <Label htmlFor="pgn-text">Paste PGN</Label>
           <Textarea
