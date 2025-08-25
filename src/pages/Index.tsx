@@ -15,6 +15,7 @@ import { PieceSelector, PieceType } from "@/components/chess/PieceSelector";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import Confetti from "react-confetti";
+import { SetupControls } from "@/components/chess/SetupControls";
 
 // Helpers
 function clamp(n: number, min: number, max: number) {
@@ -99,6 +100,16 @@ const Index: React.FC = () => {
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [gameResult, setGameResult] = useState<string | null>(null);
+  
+  // Setup mode specific state
+  const [setupTurn, setSetupTurn] = useState<'w' | 'b'>('w');
+  const [castlingRights, setCastlingRights] = useState({
+    whiteKingside: true,
+    whiteQueenside: true,
+    blackKingside: true,
+    blackQueenside: true,
+  });
+  const [customFen, setCustomFen] = useState("8/8/8/8/8/8/8/8 w - - 0 1");
   const {
     toast
   } = useToast();
@@ -238,10 +249,13 @@ const Index: React.FC = () => {
     setGameResult(null);
   }, []);
   const onClearBoard = useCallback(() => {
-    // Create an empty board FEN with only kings (minimum valid position)
-    const minimalFen = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
+    // Start with completely empty board in setup mode
+    const emptyFen = "8/8/8/8/8/8/8/8 w - - 0 1";
     try {
-      const emptyGame = new Chess(minimalFen);
+      const emptyGame = new Chess();
+      emptyGame.clear();
+      // Manually set an empty position
+      emptyGame.load(emptyFen);
       setGame(emptyGame);
       setMoves([]);
       setSetupMode(true);
@@ -249,6 +263,7 @@ const Index: React.FC = () => {
       setPossibleMoves([]);
       setShowConfetti(false);
       setGameResult(null);
+      setCustomFen(emptyFen);
     } catch (error) {
       console.error("Error creating empty board:", error);
     }
@@ -568,6 +583,70 @@ const Index: React.FC = () => {
     onDrop(from, to, '');
   }, [currentBestMove, setupMode, game, onDrop]);
 
+  // Setup control functions
+  const handleSetupTurnChange = useCallback((turn: 'w' | 'b') => {
+    setSetupTurn(turn);
+    // Update the current game's turn
+    const currentFen = game.fen();
+    const fenParts = currentFen.split(' ');
+    fenParts[1] = turn;
+    const newFen = fenParts.join(' ');
+    try {
+      const newGame = new Chess();
+      newGame.load(newFen);
+      setGame(newGame);
+      setCustomFen(newFen);
+    } catch (error) {
+      console.error("Error updating turn:", error);
+    }
+  }, [game]);
+
+  const handleCastlingRightsChange = useCallback((rights: typeof castlingRights) => {
+    setCastlingRights(rights);
+    // Update FEN with new castling rights
+    const currentFen = game.fen();
+    const fenParts = currentFen.split(' ');
+    let castlingString = '';
+    if (rights.whiteKingside) castlingString += 'K';
+    if (rights.whiteQueenside) castlingString += 'Q';
+    if (rights.blackKingside) castlingString += 'k';
+    if (rights.blackQueenside) castlingString += 'q';
+    fenParts[2] = castlingString || '-';
+    const newFen = fenParts.join(' ');
+    try {
+      const newGame = new Chess();
+      newGame.load(newFen);
+      setGame(newGame);
+      setCustomFen(newFen);
+    } catch (error) {
+      console.error("Error updating castling rights:", error);
+    }
+  }, [game]);
+
+  const handleFenChange = useCallback((fen: string) => {
+    setCustomFen(fen);
+    try {
+      const newGame = new Chess();
+      newGame.load(fen);
+      setGame(newGame);
+    } catch (error) {
+      console.error("Invalid FEN:", error);
+    }
+  }, []);
+
+  const handleStartEvaluation = useCallback(() => {
+    setSetupMode(false);
+    setSelectedPiece(null);
+    setMoves([]);
+  }, []);
+
+  // Update custom FEN when game changes in setup mode
+  useEffect(() => {
+    if (setupMode) {
+      setCustomFen(game.fen());
+    }
+  }, [game.fen(), setupMode]);
+
   // Custom square styles for move highlighting
   const customSquareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {};
@@ -667,6 +746,19 @@ const Index: React.FC = () => {
           </div>
 
           {setupMode && <PieceSelector selectedPiece={selectedPiece} onPieceSelect={setSelectedPiece} />}
+          
+          {setupMode && (
+            <SetupControls
+              turn={setupTurn}
+              onTurnChange={handleSetupTurnChange}
+              castlingRights={castlingRights}
+              onCastlingChange={handleCastlingRightsChange}
+              fen={customFen}
+              onFenChange={handleFenChange}
+              onStartEvaluation={handleStartEvaluation}
+              onClearBoard={onClearBoard}
+            />
+          )}
 
           <Card className="mb-6">
             <CardHeader className="pb-2">
